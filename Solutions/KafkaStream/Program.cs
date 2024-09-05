@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using Streamiz.Kafka.Net.SchemaRegistry.SerDes.Avro;
 using Confluent.Kafka;
 using Streamiz.Kafka.Net.Stream;
+using Streamiz.Kafka.Net.Table;
+
 using model;
 
 namespace PositionStream
@@ -36,8 +38,11 @@ namespace PositionStream
                 .MapValues(c => c.id)
                 .Branch((k, v) => k.latitude >= 45.0,
                 (k, v) => true);
-            branches[0].To<SchemaAvroSerDes<Position>, Int64SerDes>("position-output-greater"); 
-            branches[1].To<SchemaAvroSerDes<Position>, Int64SerDes>("position-output-less");
+
+            branches[0].GroupByKey<SchemaAvroSerDes<Position>, Int64SerDes>()
+                .Count(InMemory.As<Position, long>("count-store-more")).ToStream().To<SchemaAvroSerDes<Position>, SchemaAvroSerDes<long>>("position-output-count-more");
+            branches[1].GroupByKey<SchemaAvroSerDes<Position>, Int64SerDes>()
+                .Count(InMemory.As<Position, long>("count-store-less")).ToStream().To<SchemaAvroSerDes<Position>, SchemaAvroSerDes<long>>("position-output-count-less");
 
             Topology t = builder.Build();
             KafkaStream stream = new KafkaStream(t, config);
