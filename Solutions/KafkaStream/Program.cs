@@ -24,17 +24,20 @@ namespace PositionStream
 
             StreamBuilder builder = new StreamBuilder();
 
-            builder.Stream<long, Coursier>("position-avro")
+            var branches = builder.Stream<long, Coursier>("position-avro")
                 .MapValues(c =>
                 {
-                Position position = (Position)c.position;
-                position.latitude = Math.Round(position.latitude, 1);
-                position.longitude = Math.Round(position.longitude, 1);
+                    Position position = (Position)c.position;
+                    position.latitude = Math.Round(position.latitude, 1);
+                    position.longitude = Math.Round(position.longitude, 1);
                     return c;
                 })
                 .SelectKey((k, v) => (Position)v.position)
                 .MapValues(c => c.id)
-                .To<SchemaAvroSerDes<Position>, Int64SerDes>("position-output"); ;
+                .Branch((k, v) => k.latitude >= 45.0,
+                (k, v) => true);
+            branches[0].To<SchemaAvroSerDes<Position>, Int64SerDes>("position-output-greater"); 
+            branches[1].To<SchemaAvroSerDes<Position>, Int64SerDes>("position-output-less");
 
             Topology t = builder.Build();
             KafkaStream stream = new KafkaStream(t, config);
