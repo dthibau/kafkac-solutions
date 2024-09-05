@@ -32,7 +32,9 @@ namespace PositionStream
                 position.longitude = Math.Round(position.longitude, 1);
                     return c;
                 })
-                .To("position-output");
+                .SelectKey((k, v) => (Position)v.position)
+                .MapValues(c => c.id)
+                .To<SchemaAvroSerDes<Position>, Int64SerDes>("position-output"); ;
 
             Topology t = builder.Build();
             KafkaStream stream = new KafkaStream(t, config);
