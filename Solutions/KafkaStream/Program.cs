@@ -11,6 +11,7 @@ using Streamiz.Kafka.Net.Stream;
 using Streamiz.Kafka.Net.Table;
 
 using model;
+using Streamiz.Kafka.Net.State;
 
 namespace PositionStream
 {
@@ -40,9 +41,17 @@ namespace PositionStream
                 (k, v) => true);
 
             branches[0].GroupByKey<SchemaAvroSerDes<Position>, Int64SerDes>()
-                .Count(InMemory.As<Position, long>("count-store-more")).ToStream().To<SchemaAvroSerDes<Position>, SchemaAvroSerDes<long>>("position-output-count-more");
+                .WindowedBy(TumblingWindowOptions.Of(TimeSpan.FromMinutes(5)))
+                .Count().ToStream()
+                //   .Map((w, c) => new KeyValuePair<Windowed<Position>, long>(w, c))
+                .To<SchemaAvroSerDes<Windowed<Position>>, SchemaAvroSerDes<long>>("position-output-count-window-more");
+
             branches[1].GroupByKey<SchemaAvroSerDes<Position>, Int64SerDes>()
-                .Count(InMemory.As<Position, long>("count-store-less")).ToStream().To<SchemaAvroSerDes<Position>, SchemaAvroSerDes<long>>("position-output-count-less");
+    .WindowedBy(TumblingWindowOptions.Of(TimeSpan.FromMinutes(5)))
+    .Count().ToStream()
+    //   .Map((w, c) => new KeyValuePair<Windowed<Position>, long>(w, c))
+    .To<SchemaAvroSerDes<Windowed<Position>>, SchemaAvroSerDes<long>>("position-output-count-window-less");
+
 
             Topology t = builder.Build();
             KafkaStream stream = new KafkaStream(t, config);

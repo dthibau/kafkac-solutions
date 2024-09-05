@@ -90,9 +90,6 @@
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.13.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
-    <Reference Include="RocksDbSharp, Version=7.7.3.33461, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\packages\RocksDB.7.7.3.33461\lib\netstandard2.0\RocksDbSharp.dll</HintPath>
-    </Reference>
     <Reference Include="Streamiz.Kafka.Net, Version=1.6.0.0, Culture=neutral, PublicKeyToken=75e24dc15437bbc5, processorArchitecture=MSIL">
       <HintPath>..\packages\Streamiz.Kafka.Net.1.6.0\lib\netstandard2.0\Streamiz.Kafka.Net.dll</HintPath>
     </Reference>
