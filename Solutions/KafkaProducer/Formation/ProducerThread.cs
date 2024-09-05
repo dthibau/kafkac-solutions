@@ -9,23 +9,29 @@ internal class ProducerThread : IDisposable
 {
     private readonly ProducerConfig _config;
     private readonly string _topic;
+<<<<<<< HEAD
     private readonly IProducer<string, Coursier> _producer;
+=======
+    private readonly IProducer<long, Coursier> _producer;
+    private int nbSend = 0;
+>>>>>>> Producteur transactionnel
 
     public ProducerThread(string bootstrapServers, string topic, SendMode sendMode)
     {
         _topic = topic;
         if (sendMode == SendMode.FIRE_AND_FORGET)
         {
-            _config = new ProducerConfig { BootstrapServers = bootstrapServers, 
-                EnableDeliveryReports = false };
+            _config = new ProducerConfig { BootstrapServers = bootstrapServers, EnableDeliveryReports = false, TransactionalId = "tx-position" };
         }
         else
         {
-            _config = new ProducerConfig { BootstrapServers = bootstrapServers };
+            _config = new ProducerConfig { BootstrapServers = bootstrapServers, TransactionalId = "tx-position" };
         }
         _producer = new ProducerBuilder<string, Coursier>(_config)
             .SetValueSerializer(new CustomSerializer<Coursier>())
             .Build();
+        _producer.InitTransactions(TimeSpan.FromSeconds(30));
+        _producer.BeginTransaction();
     }
 
     public void ProduceFireAndForget(Coursier coursier)
@@ -39,12 +45,20 @@ internal class ProducerThread : IDisposable
             {
 
                 _producer.Produce(_topic,message);
-               // Console.WriteLine($"Fire-and-Forget: Message '{message}' envoyé.");
+                // Console.WriteLine($"Fire-and-Forget: Message '{message}' envoyé.");
+                nbSend++;
+                if (nbSend % 10 == 0)
+                {
+                    _producer.CommitTransaction();
+                    _producer.BeginTransaction();
+                    nbSend = 0;
+                }
             }
             catch (Exception e)
             {
                 Console.WriteLine($"Erreur lors de l'envoi du message '{message}': {e.Message}");
             }
+       
     }
     public void ProduceSynchronously(Coursier coursier)
     {
@@ -56,9 +70,17 @@ internal class ProducerThread : IDisposable
         };
         try
             {
+
             var task = _producer.ProduceAsync(_topic, message);
              var deliveryResult =task .Wait(10000) ? task.Result  : null;
                // Console.WriteLine($"Synchronously: Message '{message}' envoyé à partition {deliveryResult.Partition} [offset {deliveryResult.Offset}]");
+               nbSend++;
+                if (nbSend % 10 == 0)
+                {
+                    _producer.CommitTransaction();
+                    _producer.BeginTransaction();
+                    nbSend = 0;
+                }
             }
             catch (Exception e)
             {
@@ -84,6 +106,15 @@ internal class ProducerThread : IDisposable
                             Console.WriteLine($"Asynchronously: Erreur");
 
                     }));
+
+            //   Console.WriteLine($"Asynchronously: Message '{message}' envoyé à partition {deliveryResult.Partition} [offset {deliveryResult.Offset}]");
+                 nbSend++;
+                if (nbSend % 10 == 0)
+                {
+                    _producer.CommitTransaction();
+                    _producer.BeginTransaction();
+                    nbSend = 0;
+                }
             }
             catch (Exception e)
             {
