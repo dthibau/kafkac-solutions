@@ -27,14 +27,19 @@ namespace KafkaConsumer
 
         public void StartConsuming(CancellationToken cancellationToken)
         {
-            var config = new ConsumerConfig
+            var consumerConfig = new ConsumerConfig
             {
                 BootstrapServers = _bootstrapServers,
                 GroupId = _groupId,
                 AutoOffsetReset = AutoOffsetReset.Earliest
             };
-
-            using (var consumer = new ConsumerBuilder<long, Coursier>(config)
+            var producerConfig = new ProducerConfig
+            {
+                BootstrapServers = _bootstrapServers,
+                TransactionalId = "tx-tostring"
+            };
+            using (var producer = new ProducerBuilder<string, string>(producerConfig).Build())
+            using (var consumer = new ConsumerBuilder<long, Coursier>(consumerConfig)
                 .SetKeyDeserializer(Deserializers.Int64)
                 .SetValueDeserializer(new CustomDeserializer<Coursier>())
                 .SetPartitionsRevokedHandler((c,partitions) =>
@@ -45,17 +50,45 @@ namespace KafkaConsumer
                 .Build())
             {
                 consumer.Subscribe(_topic);
+                producer.InitTransactions(TimeSpan.FromSeconds(30));
+                producer.BeginTransaction();
+                var lastTxnCommit = DateTime.Now;
+                var txnCommitPeriod = TimeSpan.FromSeconds(10);
 
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     try
                     {
-                        var consumeResult = consumer.Consume(cancellationToken);
+                        var consumeResult = consumer.Consume(TimeSpan.FromSeconds(1));
 
-                        Console.WriteLine($"Message consommé : clé = {consumeResult.Message.Key}, offset = {consumeResult.Offset}");
+                        if ( consumeResult !=  null )
+                        {
+                            Console.WriteLine($"Message consommé : clé = {consumeResult.Message.Key}, offset = {consumeResult.Offset}");
 
-                        // Insérer dans PostgreSQL
-                        InsertIntoPostgres(consumeResult.Message.Key, consumeResult.Offset.Value);
+                            // Insérer dans PostgreSQL
+                           // InsertIntoPostgres(consumeResult.Message.Key, consumeResult.Offset.Value);
+
+                            producer.Produce("position-tostring", new Message<string, string>
+                            {
+                                Key = consumeResult.Message.Key.ToString(),
+                                Value = consumeResult.Message.Value.ToString()
+                            });
+
+                            if (DateTime.Now > lastTxnCommit + txnCommitPeriod)
+                            {
+                                producer.SendOffsetsToTransaction(
+                                    // Note: committed offsets reflect the next message to consume, not last
+                                    // message consumed. consumer.Position returns the last consumed offset
+                                    // values + 1, as required.
+                                    consumer.Assignment.Select(a => new TopicPartitionOffset(a, consumer.Position(a))),
+                                    consumer.ConsumerGroupMetadata,
+                                     TimeSpan.FromSeconds(30));
+                                producer.CommitTransaction();
+                                producer.BeginTransaction();
+                                lastTxnCommit = DateTime.Now;
+                            }
+                        }
+                        
                     }
                     catch (ConsumeException ex)
                     {
