@@ -17,6 +17,8 @@ namespace PositionStream
 {
     internal class Program
     {
+
+
         static async Task Main(string[] args)
         {
             var config = new StreamConfig<Int64SerDes, SchemaAvroSerDes<Coursier>>();
@@ -42,15 +44,15 @@ namespace PositionStream
 
             branches[0].GroupByKey<SchemaAvroSerDes<Position>, Int64SerDes>()
                 .WindowedBy(TumblingWindowOptions.Of(TimeSpan.FromMinutes(5)))
-                .Count().ToStream()
-                //   .Map((w, c) => new KeyValuePair<Windowed<Position>, long>(w, c))
-                .To<SchemaAvroSerDes<Windowed<Position>>, SchemaAvroSerDes<long>>("position-output-count-window-more");
+                .Count(InMemoryWindows.As<Position, long>("CountStore1").WithValueSerdes<Int64SerDes>().WithKeySerdes<SchemaAvroSerDes<Position>>()).ToStream()
+                .Map((windowKey, count) => new KeyValuePair<Position, long>(windowKey.Key, count))
+                .To<SchemaAvroSerDes<Position>, SchemaAvroSerDes<long>>("position-output-count-window-more");
 
             branches[1].GroupByKey<SchemaAvroSerDes<Position>, Int64SerDes>()
     .WindowedBy(TumblingWindowOptions.Of(TimeSpan.FromMinutes(5)))
-    .Count().ToStream()
-    //   .Map((w, c) => new KeyValuePair<Windowed<Position>, long>(w, c))
-    .To<SchemaAvroSerDes<Windowed<Position>>, SchemaAvroSerDes<long>>("position-output-count-window-less");
+    .Count(InMemoryWindows.As<Position, long>("CountStore2").WithValueSerdes<Int64SerDes>().WithKeySerdes<SchemaAvroSerDes<Position>>()).ToStream()
+    .Map((windowKey, count) => new KeyValuePair<Position, long>(windowKey.Key, count))
+    .To<SchemaAvroSerDes<Position>, SchemaAvroSerDes<long>>("position-output-count-window-less");
 
 
             Topology t = builder.Build();
