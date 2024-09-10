@@ -17,7 +17,8 @@ namespace PositionStream
 {
     internal class Program
     {
-
+        // Map pour stocker la dernière région de chaque coursier
+        private static Dictionary<long, Position> dernieresPosition= new Dictionary<Int64, Position>();
 
         static async Task Main(string[] args)
         {
@@ -43,16 +44,67 @@ namespace PositionStream
                 (k, v) => true);
 
             branches[0].GroupByKey<SchemaAvroSerDes<Position>, Int64SerDes>()
-                .WindowedBy(TumblingWindowOptions.Of(TimeSpan.FromMinutes(5)))
-                .Count(InMemoryWindows.As<Position, long>("CountStore1").WithValueSerdes<Int64SerDes>().WithKeySerdes<SchemaAvroSerDes<Position>>()).ToStream()
-                .Map((windowKey, count) => new KeyValuePair<Position, long>(windowKey.Key, count))
-                .To<SchemaAvroSerDes<Position>, SchemaAvroSerDes<long>>("position-output-count-window-more");
+                .Aggregate(() => new List<Int64>(), 
+                (position, coursierId, aggregate) =>
+                {
+                    if (!aggregate.Contains(coursierId))
+                    {
+                        aggregate.Add(coursierId);
+                    }
+                    return aggregate;
+                },
+                InMemory.As<Position, List<long>>("CountStore1")
+                        .WithValueSerdes<JsonSerDes<List<long>>>()
+                        .WithKeySerdes<SchemaAvroSerDes<Position>>())
+                .ToStream()
+                .FlatMap((k, v) =>
+                {
+                    List<KeyValuePair<Position, List<long>>> results = new List<KeyValuePair<Position, List<long>>>();
+                    results.Add(new KeyValuePair<Position, List<long>>(k, v));
+                    Console.WriteLine("Position : " + k.latitude + ":" + k.longitude + " Couriers " + String.Join(", ", v));
+                    Console.WriteLine("Dernières positions :");
+                    foreach (KeyValuePair<long, Position> entry in dernieresPosition)
+                    {
+                        Console.WriteLine($"Clé : {entry.Key}, Valeur : {entry.Value}");
+                    }
+                    for (int i = 0; i < v.Count; i++)
+                    {
+                        if (dernieresPosition.TryGetValue(v[i], out var position))
+                        {
+                           
+                            if (!(position.latitude == k.latitude && position.longitude == k.longitude))
+                            {
+                                Console.WriteLine("Coursier   : " + v[i] + " has Changed new is " + k.latitude + ":" + k.longitude + " / old is" + position.latitude + ":" +position.longitude);
+                                Position oldPosition = dernieresPosition[v[i]];
+                                dernieresPosition[v[i]] = k;
+                                List<long> otherCoursiers = new List<long>();
+                                foreach (var item in dernieresPosition)
+                                {
+                                    if (item.Value.latitude == oldPosition.latitude && item.Value.longitude == oldPosition.longitude)
+                                    {
+                                        otherCoursiers.Add(item.Key);
+                                    }
+                                }
+                                results.Add(new KeyValuePair<Position, List<long>>(oldPosition, otherCoursiers));
+                            }
+                        }
+                    }
+                    for (int i = 0; i < v.Count; i++)
+                    {
+                        dernieresPosition[v[i]] = k;
+                    }
+                    Console.WriteLine("Dernières positions :");
+                    foreach (KeyValuePair<long, Position> entry in dernieresPosition)
+                    {
+                        Console.WriteLine($"Clé : {entry.Key}, Valeur : {entry.Value}");
+                    }
 
-            branches[1].GroupByKey<SchemaAvroSerDes<Position>, Int64SerDes>()
-    .WindowedBy(TumblingWindowOptions.Of(TimeSpan.FromMinutes(5)))
-    .Count(InMemoryWindows.As<Position, long>("CountStore2").WithValueSerdes<Int64SerDes>().WithKeySerdes<SchemaAvroSerDes<Position>>()).ToStream()
-    .Map((windowKey, count) => new KeyValuePair<Position, long>(windowKey.Key, count))
-    .To<SchemaAvroSerDes<Position>, SchemaAvroSerDes<long>>("position-output-count-window-less");
+
+                    return results;
+                })
+                .To<SchemaAvroSerDes<Position>, JsonSerDes<List<long>>>("position-coursiers");
+
+
 
 
             Topology t = builder.Build();
