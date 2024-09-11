@@ -5,7 +5,7 @@ using Confluent.Kafka;
 using KafkaProducer.Formation.model;
 using static Confluent.Kafka.ConfigPropertyNames;
 
-internal class ProducerThread
+internal class ProducerThread : IDisposable
 {
     private readonly ProducerConfig _config;
     private readonly string _topic;
@@ -16,14 +16,15 @@ internal class ProducerThread
         _topic = topic;
         if (sendMode == SendMode.FIRE_AND_FORGET)
         {
-            _config = new ProducerConfig { BootstrapServers = bootstrapServers, EnableDeliveryReports = false };
+            _config = new ProducerConfig { BootstrapServers = bootstrapServers, 
+                EnableDeliveryReports = false };
         }
         else
         {
             _config = new ProducerConfig { BootstrapServers = bootstrapServers };
         }
         _producer = new ProducerBuilder<long, Coursier>(_config)
-            .SetKeySerializer(Serializers.Int64).SetValueSerializer(new CustomSerializer<Coursier>())
+            .SetValueSerializer(new CustomSerializer<Coursier>())
             .Build();
     }
 
@@ -55,7 +56,8 @@ internal class ProducerThread
             };
             try
             {
-                var deliveryResult = _producer.ProduceAsync(_topic, message).GetAwaiter().GetResult();
+            var task = _producer.ProduceAsync(_topic, message);
+             var deliveryResult =task .Wait(10000) ? task.Result  : null;
                // Console.WriteLine($"Synchronously: Message '{message}' envoyé à partition {deliveryResult.Partition} [offset {deliveryResult.Offset}]");
             }
             catch (Exception e)
@@ -65,7 +67,7 @@ internal class ProducerThread
 
     }
 
-    public async Task ProduceAsynchronously(Coursier coursier)
+    public void  ProduceAsynchronously(Coursier coursier)
     {
 
             Message<long, Coursier> message = new Message<long, Coursier>
@@ -75,8 +77,13 @@ internal class ProducerThread
             };
             try
             {
-                var deliveryResult = await _producer.ProduceAsync(_topic, message);
-             //   Console.WriteLine($"Asynchronously: Message '{message}' envoyé à partition {deliveryResult.Partition} [offset {deliveryResult.Offset}]");
+                 _producer.Produce(_topic, message,
+                    (deliveryResult =>
+                    {
+                        if (deliveryResult.Error.IsError)
+                            Console.WriteLine($"Asynchronously: Erreur");
+
+                    }));
             }
             catch (Exception e)
             {
