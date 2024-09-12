@@ -33,90 +33,94 @@ class Program
         string avroSchemaString = File.ReadAllText("..\\..\\Coursier.avsc");
         schemaRegistry.RegisterSchemaAsync($"{topic}-value", avroSchemaString).Wait();
 
-        ProducerThread producer = new ProducerThread(bootstrapServers, topic, sendMode, schemaRegistry);
 
         // Initialiser le chronomètre
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
 
-        // Crée et démarre les threads
-        var tasks = new Task[nbThreads];
-        for (int i = 0; i < nbThreads; i++)
+        using (ProducerThread producer = new ProducerThread(bootstrapServers, topic, sendMode, schemaRegistry))
         {
-            int threadIndex = i;
-            switch (sendMode)
+            // Crée et démarre les threads
+            var tasks = new Task[nbThreads];
+            for (int i = 0; i < nbThreads; i++)
             {
-                case SendMode.FIRE_AND_FORGET:
-                       tasks[i] = Task.Run(() =>
+                int threadIndex = i;
+                switch (sendMode)
+                {
+                    case SendMode.FIRE_AND_FORGET:
+                        tasks[i] = Task.Run(() =>
+                        {
+                            Position position = new Position();
+                            position.latitude = 45;
+                            position.longitude = 45;
+                            Coursier coursier = new Coursier();
+                            coursier.id = threadIndex;
+                            coursier.position = position;
+                            Random random = new Random();
+
+                            for (int j = 0; j < nbMessages; j++)
                             {
-                                Position position = new Position();
-                                position.latitude = 45;
-                                position.longitude = 45;
-                                Coursier coursier = new Coursier();
-                                coursier.id = threadIndex;
+                                position.latitude += random.NextDouble() - 0.5;
+                                position.longitude += random.NextDouble() - 0.5;
                                 coursier.position = position;
-                                Random random = new Random();
-
-                                for (int j = 0; j < nbMessages; j++)
-                                {
-                                    position.latitude += random.NextDouble() - 0.5;
-                                    position.longitude += random.NextDouble() - 0.5;
-                                    coursier.position = position;
-                                    producer.ProduceFireAndForget(coursier);
-                                    Thread.Sleep(100);
-                                }
+                                producer.ProduceFireAndForget(coursier);
+                                Thread.Sleep(100);
+                            }
                         });
-                    break;
-                case SendMode.SYNCHRONE:
-                    tasks[i] = Task.Run(() =>
-                    {
-                        Position position = new Position();
-                        position.latitude = 45;
-                        position.longitude = 45;
-                        Coursier coursier = new Coursier();
-                        coursier.id = threadIndex;
-                        coursier.position = position;
-                        Random random = new Random();
-
-                        for (int j = 0; j < nbMessages; j++)
+                        break;
+                    case SendMode.SYNCHRONE:
+                        tasks[i] = Task.Run(() =>
                         {
-                            position.latitude += random.NextDouble() - 0.5;
-                            position.longitude += random.NextDouble() - 0.5;
+                            Position position = new Position();
+                            position.latitude = 45;
+                            position.longitude = 45;
+                            Coursier coursier = new Coursier();
+                            coursier.id = threadIndex;
                             coursier.position = position;
-                            producer.ProduceSynchronously(coursier);
-                            Thread.Sleep(100);
-                        }
-                    });
-                    break;
-                case SendMode.ASYNCHRONE:
-                    tasks[i] = Task.Run(async () =>
-                    {
-                        Position position = new Position();
-                        position.latitude = 45;
-                        position.longitude = 45;
-                        Coursier coursier = new Coursier();
-                        coursier.id = threadIndex;
-                        coursier.position = position;
-                        Random random = new Random();
+                            Random random = new Random();
 
-                        for (int j = 0; j < nbMessages; j++)
+                            for (int j = 0; j < nbMessages; j++)
+                            {
+                                position.latitude += random.NextDouble() - 0.5;
+                                position.longitude += random.NextDouble() - 0.5;
+                                coursier.position = position;
+                                producer.ProduceSynchronously(coursier);
+                                Thread.Sleep(100);
+                            }
+                        });
+                        break;
+                    case SendMode.ASYNCHRONE:
+                        tasks[i] = Task.Run(async () =>
                         {
-                            position.latitude += random.NextDouble() - 0.5;
-                            position.longitude += random.NextDouble() - 0.5;
+                            Position position = new Position();
+                            position.latitude = 45;
+                            position.longitude = 45;
+                            Coursier coursier = new Coursier();
+                            coursier.id = threadIndex;
                             coursier.position = position;
-                            await producer.ProduceAsynchronously(coursier);
-                            Thread.Sleep(100);
-                        }
-                     });
-                    break;
-                default:
-                    Console.WriteLine($"Mode inconnu: {sendMode}");
-                    break; ;
+                            Random random = new Random();
+
+                            for (int j = 0; j < nbMessages; j++)
+                            {
+                                position.latitude += random.NextDouble() - 0.5;
+                                position.longitude += random.NextDouble() - 0.5;
+                                coursier.position = position;
+                                await producer.ProduceAsynchronously(coursier);
+                                Thread.Sleep(100);
+                            }
+                        });
+                        break;
+                    default:
+                        Console.WriteLine($"Mode inconnu: {sendMode}");
+                        break; ;
+                }
             }
-        }
+            // Attendre que tous les threads aient terminé
+            await Task.WhenAll(tasks);
 
-        // Attendre que tous les threads aient terminé
-        await Task.WhenAll(tasks);
+        };
+
+       
 
         // Arrêter le chronomètre
         stopwatch.Stop();

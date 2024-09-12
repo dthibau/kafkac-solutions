@@ -3,12 +3,13 @@ using System.Numerics;
 using System.Threading.Tasks;
 using Avro.Generic;
 using Confluent.Kafka;
+using Confluent.Kafka.SyncOverAsync;
 using Confluent.SchemaRegistry;
 using Confluent.SchemaRegistry.Serdes;
 using model;
 using static Confluent.Kafka.ConfigPropertyNames;
 
-internal class ProducerThread
+internal class ProducerThread : IDisposable
 {
     private readonly ProducerConfig _config;
     private readonly string _topic;
@@ -20,15 +21,20 @@ internal class ProducerThread
         if (sendMode == SendMode.FIRE_AND_FORGET)
         {
             _config = new ProducerConfig { BootstrapServers = bootstrapServers, EnableDeliveryReports = false };
+            _producer = new ProducerBuilder<long, Coursier>(_config)
+    .SetKeySerializer(Serializers.Int64)
+   .SetValueSerializer(new AvroSerializer<Coursier>(schemaRegistry).AsSyncOverAsync())
+    .Build();
         }
         else
         {
             _config = new ProducerConfig { BootstrapServers = bootstrapServers };
+            _producer = new ProducerBuilder<long, Coursier>(_config)
+    .SetKeySerializer(Serializers.Int64)
+   .SetValueSerializer(new AvroSerializer<Coursier>(schemaRegistry))
+    .Build();
         }
-        _producer = new ProducerBuilder<long, Coursier>(_config)
-            .SetKeySerializer(Serializers.Int64)
-           .SetValueSerializer(new AvroSerializer<Coursier>(schemaRegistry))
-            .Build();
+
     }
 
     public void ProduceFireAndForget(Coursier coursier)
