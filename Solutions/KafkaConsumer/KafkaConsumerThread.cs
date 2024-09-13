@@ -31,7 +31,8 @@ namespace KafkaConsumer
             {
                 BootstrapServers = _bootstrapServers,
                 GroupId = _groupId,
-                AutoOffsetReset = AutoOffsetReset.Earliest
+                AutoOffsetReset = AutoOffsetReset.Earliest,
+                EnableAutoCommit = false
             };
             var producerConfig = new ProducerConfig
             {
@@ -42,11 +43,33 @@ namespace KafkaConsumer
             using (var consumer = new ConsumerBuilder<long, Coursier>(consumerConfig)
                 .SetKeyDeserializer(Deserializers.Int64)
                 .SetValueDeserializer(new CustomDeserializer<Coursier>())
-                .SetPartitionsRevokedHandler((c,partitions) =>
-                {
-                    Console.WriteLine($"Partitions revoked : {partitions}");
+               .SetPartitionsRevokedHandler((c, partitions) => {
+               
+
+                   // All handlers (except the log handler) are executed as a
+                   // side-effect of, and on the same thread as the Consume or
+                   // Close methods. Any exception thrown in a handler (with
+                   // the exception of the log and error handlers) will
+                   // be propagated to the application via the initiating
+                   // call. i.e. in this example, any exceptions thrown in this
+                   // handler will be exposed via the Consume method in the main
+                   // consume loop and handled by the try/catch block there.
+
+                   producer.SendOffsetsToTransaction(
+                       c.Assignment.Select(a => new TopicPartitionOffset(a, c.Position(a))),
+                       c.ConsumerGroupMetadata,
+                       TimeSpan.FromSeconds(10));
+                   producer.CommitTransaction();
+                   producer.BeginTransaction();
+               })
+
+                .SetPartitionsLostHandler((c, partitions) => {
+                    // Ownership of the partitions has been involuntarily lost and
+                    // are now likely already owned by another consumer.
+
+                    producer.AbortTransaction();
+                    producer.BeginTransaction();
                 })
-                .SetPartitionsAssignedHandler((c, partitions) => { Console.WriteLine($"Partitions assigned : {partitions}"); })
                 .Build())
             {
                 consumer.Subscribe(_topic);
