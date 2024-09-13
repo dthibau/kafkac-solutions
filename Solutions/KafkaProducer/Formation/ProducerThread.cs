@@ -9,7 +9,7 @@ internal class ProducerThread : IDisposable
 {
     private readonly ProducerConfig _config;
     private readonly string _topic;
-    private readonly IProducer<long, Coursier> _producer;
+    private readonly IProducer<string, Coursier> _producer;
 
     public ProducerThread(string bootstrapServers, string topic, SendMode sendMode)
     {
@@ -23,17 +23,17 @@ internal class ProducerThread : IDisposable
         {
             _config = new ProducerConfig { BootstrapServers = bootstrapServers };
         }
-        _producer = new ProducerBuilder<long, Coursier>(_config)
+        _producer = new ProducerBuilder<string, Coursier>(_config)
             .SetValueSerializer(new CustomSerializer<Coursier>())
             .Build();
     }
 
     public void ProduceFireAndForget(Coursier coursier)
     {
-            Message<long, Coursier> message = new Message<long, Coursier>
+            Message<string, Coursier> message = new Message<string, Coursier>
             {
                 Value = coursier,
-                Key = coursier.Id
+                Key = coursier.Id.ToString()
             };
             try
             {
@@ -49,12 +49,12 @@ internal class ProducerThread : IDisposable
     public void ProduceSynchronously(Coursier coursier)
     {
 
-            Message<long, Coursier> message = new Message<long, Coursier>
-            {
-                Value = coursier,
-                Key = coursier.Id
-            };
-            try
+        Message<string, Coursier> message = new Message<string, Coursier>
+        {
+            Value = coursier,
+            Key = coursier.Id.ToString()
+        };
+        try
             {
             var task = _producer.ProduceAsync(_topic, message);
              var deliveryResult =task .Wait(10000) ? task.Result  : null;
@@ -70,12 +70,12 @@ internal class ProducerThread : IDisposable
     public void  ProduceAsynchronously(Coursier coursier)
     {
 
-            Message<long, Coursier> message = new Message<long, Coursier>
-            {
-                Value = coursier,
-                Key = coursier.Id
-            };
-            try
+        Message<string, Coursier> message = new Message<string, Coursier>
+        {
+            Value = coursier,
+            Key = coursier.Id.ToString()
+        };
+        try
             {
                  _producer.Produce(_topic, message,
                     (deliveryResult =>
