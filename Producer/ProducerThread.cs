@@ -1,12 +1,10 @@
-﻿using System;
-using System.Numerics;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
 using KafkaProducer.Formation.model;
-using static Confluent.Kafka.ConfigPropertyNames;
 
-internal class ProducerThread
+internal class ProducerThread : IDisposable
 {
     private readonly IProducer<string, Coursier> _producer;
     private readonly string _topic;
@@ -14,7 +12,22 @@ internal class ProducerThread
 
     public ProducerThread(string bootstrapServers, string topic, SendMode sendMode)
     {
-       // A compléter
+        _topic = topic;
+        _sendMode = sendMode;
+
+        var config = new ProducerConfig
+        {
+            BootstrapServers = bootstrapServers
+        };
+
+        if (sendMode == SendMode.FIRE_AND_FORGET)
+        {
+            config.EnableDeliveryReports = false;
+        }
+
+        _producer = new ProducerBuilder<string, Coursier>(config)
+            .SetValueSerializer(new CustomSerializer<Coursier>())
+            .Build();
     }
 
     public async Task StartProducing(int threadIndex, int nbMessages)
@@ -36,15 +49,26 @@ internal class ProducerThread
                 switch (_sendMode)
                 {
                     case SendMode.FIRE_AND_FORGET:
-                       // A compléter
+                        _producer.Produce(_topic, message);
                         break;
 
                     case SendMode.SYNCHRONE:
-                       // A compléter
+                        var result = _producer.ProduceAsync(_topic, message).GetAwaiter().GetResult();
+                        Console.WriteLine($"[Thread {threadIndex}] Message envoyé: partition={result.Partition}, offset={result.Offset}");
                         break;
 
                     case SendMode.ASYNCHRONE:
-                       // A compléter
+                        _producer.Produce(_topic, message, deliveryReport =>
+                        {
+                            if (deliveryReport.Error.Code != ErrorCode.NoError)
+                            {
+                                Console.WriteLine($"[Thread {threadIndex}] Erreur: {deliveryReport.Error.Reason}");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[Thread {threadIndex}] Message envoyé: partition={deliveryReport.Partition}, offset={deliveryReport.Offset}");
+                            }
+                        });
                         break;
 
                     default:
@@ -58,10 +82,12 @@ internal class ProducerThread
 
             Thread.Sleep(100); // Simule une pause entre les envois
         }
+
+        _producer.Flush(TimeSpan.FromSeconds(10));
     }
 
     public void Dispose()
     {
-      // A compléter
+        _producer?.Dispose();
     }
 }

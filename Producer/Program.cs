@@ -18,7 +18,7 @@ class Program
         int nbMessages = int.Parse(args[1]);
         SendMode sendMode = (SendMode)int.Parse(args[2]);
 
-        string bootstrapServers = "localhost:19092";
+        string bootstrapServers = "localhost:19092,localhost:19093,localhost:19094";
         string topic = "position";
 
         Stopwatch stopwatch = new Stopwatch();
@@ -32,7 +32,7 @@ class Program
             int threadIndex = i;
             tasks[i] = Task.Run(async () =>
             {
-                var producer = new ProducerThread(bootstrapServers, topic, sendMode);
+                using var producer = new ProducerThread(bootstrapServers, topic, sendMode);
 
                 Console.WriteLine($"Starting thread {threadIndex}");
                 await producer.StartProducing(threadIndex, nbMessages);
