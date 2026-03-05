@@ -1,12 +1,8 @@
-﻿using Confluent.Kafka;
+using Confluent.Kafka;
 using KafkaConsumer.model;
 using Npgsql;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace KafkaConsumer
 {
@@ -19,12 +15,56 @@ namespace KafkaConsumer
 
         public KafkaConsumerThread(string bootstrapServers, string groupId, string topic, string connectionString)
         {
-
+            _bootstrapServers = bootstrapServers;
+            _groupId = groupId;
+            _topic = topic;
+            _connectionString = connectionString;
         }
 
         public void StartConsuming(CancellationToken cancellationToken)
         {
+            var config = new ConsumerConfig
+            {
+                BootstrapServers = _bootstrapServers,
+                GroupId = _groupId,
+                AutoOffsetReset = AutoOffsetReset.Earliest,
+                EnableAutoCommit = true
+            };
 
+            using var consumer = new ConsumerBuilder<string, Coursier>(config)
+                .SetValueDeserializer(new CustomDeserializer<Coursier>())
+                .SetPartitionsAssignedHandler((c, partitions) =>
+                {
+                    Console.WriteLine($"Partitions assignées : {string.Join(", ", partitions)}");
+                })
+                .SetPartitionsRevokedHandler((c, partitions) =>
+                {
+                    Console.WriteLine($"Partitions révoquées : {string.Join(", ", partitions)}");
+                })
+                .Build();
+
+            consumer.Subscribe(_topic);
+
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    var consumeResult = consumer.Consume(cancellationToken);
+
+                    Console.WriteLine($"Message reçu : clé = {consumeResult.Message.Key}, partition = {consumeResult.Partition}, offset = {consumeResult.Offset}");
+
+                    long coursierId = long.Parse(consumeResult.Message.Key);
+                    InsertIntoPostgres(coursierId, consumeResult.Offset.Value);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine("Consommation annulée.");
+            }
+            finally
+            {
+                consumer.Close();
+            }
         }
 
         private void InsertIntoPostgres(long key, long offset)
