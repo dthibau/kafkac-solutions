@@ -21,32 +21,26 @@ internal class ExactlyOnceProcessor
 
     public void Process(int nbMessages, CancellationToken cancellationToken)
     {
-        // Configuration du Producer transactionnel
-        // A compléter :
-        //   - BootstrapServers
-        //   - EnableIdempotence = true
-        //   - TransactionalId = "exactly-once-processor"
         var producerConfig = new ProducerConfig
         {
-            // A compléter
+            BootstrapServers = _bootstrapServers,
+            EnableIdempotence = true,
+            TransactionalId = "exactly-once-processor"
         };
 
-        // Configuration du Consumer
-        // A compléter :
-        //   - BootstrapServers
-        //   - GroupId
-        //   - EnableAutoCommit = false (les offsets sont committés via la transaction)
-        //   - AutoOffsetReset = AutoOffsetReset.Earliest
-        //   - IsolationLevel = IsolationLevel.ReadCommitted
         var consumerConfig = new ConsumerConfig
         {
-            // A compléter
+            BootstrapServers = _bootstrapServers,
+            GroupId = _groupId,
+            EnableAutoCommit = false,
+            AutoOffsetReset = AutoOffsetReset.Earliest,
+            IsolationLevel = IsolationLevel.ReadCommitted
         };
 
         using var producer = new ProducerBuilder<string, string>(producerConfig).Build();
         using var consumer = new ConsumerBuilder<string, string>(consumerConfig).Build();
 
-        // A compléter : Initialisation des transactions
+        producer.InitTransactions(TimeSpan.FromSeconds(10));
 
         consumer.Subscribe(_inputTopic);
 
@@ -56,13 +50,60 @@ internal class ExactlyOnceProcessor
         {
             while (messagesTraites < nbMessages && !cancellationToken.IsCancellationRequested)
             {
-                // A compléter : Récupération d'un lot de messages via ConsumeBatch
-                // Puis pour chaque batch :
-                //   1. BeginTransaction
-                //   2. Pour chaque message du batch : Transform + Produce vers le topic de sortie
-                //   3. SendOffsetsToTransaction (offsets max par partition du batch + consumer group metadata)
-                //   4. CommitTransaction
-                //   En cas d'erreur : AbortTransaction
+                // Récupération d'un lot de messages
+                var batch = ConsumeBatch(consumer, cancellationToken, Math.Min(10, nbMessages - messagesTraites));
+
+                if (batch.Count == 0)
+                    continue;
+
+                producer.BeginTransaction();
+
+                try
+                {
+                    // Transformation et envoi de chaque message du lot
+                    foreach (var consumeResult in batch)
+                    {
+                        string transformedValue = Transform(consumeResult.Message.Value);
+
+                        producer.Produce(_outputTopic, new Message<string, string>
+                        {
+                            Key = consumeResult.Message.Key,
+                            Value = transformedValue
+                        });
+                    }
+
+                    // Commit atomique : offsets consommés + messages produits
+                    var lastByPartition = new List<TopicPartitionOffset>();
+                    foreach (var cr in batch)
+                    {
+                        var existing = lastByPartition.FindIndex(tp => tp.TopicPartition == cr.TopicPartition);
+                        if (existing >= 0)
+                        {
+                            if (cr.Offset > lastByPartition[existing].Offset)
+                                lastByPartition[existing] = new TopicPartitionOffset(cr.TopicPartition, cr.Offset + 1);
+                        }
+                        else
+                        {
+                            lastByPartition.Add(new TopicPartitionOffset(cr.TopicPartition, cr.Offset + 1));
+                        }
+                    }
+
+                    producer.SendOffsetsToTransaction(
+                        lastByPartition,
+                        consumer.ConsumerGroupMetadata,
+                        TimeSpan.FromSeconds(10)
+                    );
+
+                    producer.CommitTransaction();
+
+                    messagesTraites += batch.Count;
+                    Console.WriteLine($"{messagesTraites}/{nbMessages} messages traités (batch de {batch.Count})");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Erreur lors de la transaction, abort : {e.Message}");
+                    producer.AbortTransaction();
+                }
             }
         }
         catch (OperationCanceledException)
