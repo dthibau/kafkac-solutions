@@ -8,6 +8,11 @@
       "type": "long"
     },
     {
+      "name": "first_name",
+      "type": "string",
+      "default": "undefined"
+    },
+    {
       "name": "position",
       "type": {
         "type": "record",

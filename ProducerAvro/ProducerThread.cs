@@ -60,6 +60,7 @@ internal class ProducerThread : IDisposable
         var coursier = new Coursier
         {
             id = threadIndex,
+            first_name = $"Coursier-{threadIndex}",
             position = new Position { latitude = 45, longitude = 45 }
         };
 

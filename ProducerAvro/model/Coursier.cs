@@ -16,8 +16,9 @@ namespace model
 	[global::System.CodeDom.Compiler.GeneratedCodeAttribute("avrogen", "1.12.1+9110c693767c1dde2665b2b57939333478b12036")]
 	public partial class Coursier : global::Avro.Specific.ISpecificRecord
 	{
-		public static global::Avro.Schema _SCHEMA = global::Avro.Schema.Parse(@"{""type"":""record"",""name"":""Coursier"",""namespace"":""model"",""fields"":[{""name"":""id"",""type"":""long""},{""name"":""position"",""type"":{""type"":""record"",""name"":""Position"",""namespace"":""model"",""fields"":[{""name"":""latitude"",""type"":""double""},{""name"":""longitude"",""type"":""double""}]}}]}");
+		public static global::Avro.Schema _SCHEMA = global::Avro.Schema.Parse(@"{""type"":""record"",""name"":""Coursier"",""namespace"":""model"",""fields"":[{""name"":""id"",""type"":""long""},{""name"":""first_name"",""default"":""undefined"",""type"":""string""},{""name"":""position"",""type"":{""type"":""record"",""name"":""Position"",""namespace"":""model"",""fields"":[{""name"":""latitude"",""type"":""double""},{""name"":""longitude"",""type"":""double""}]}}]}");
 		private long _id;
+		private string _first_name;
 		private model.Position _position;
 		public virtual global::Avro.Schema Schema
 		{
@@ -37,6 +38,17 @@ namespace model
 				this._id = value;
 			}
 		}
+		public string first_name
+		{
+			get
+			{
+				return this._first_name;
+			}
+			set
+			{
+				this._first_name = value;
+			}
+		}
 		public model.Position position
 		{
 			get
@@ -53,7 +65,8 @@ namespace model
 			switch (fieldPos)
 			{
 			case 0: return this.id;
-			case 1: return this.position;
+			case 1: return this.first_name;
+			case 2: return this.position;
 			default: throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Get()");
 			};
 		}
@@ -62,7 +75,8 @@ namespace model
 			switch (fieldPos)
 			{
 			case 0: this.id = (System.Int64)fieldValue; break;
-			case 1: this.position = (model.Position)fieldValue; break;
+			case 1: this.first_name = (System.String)fieldValue; break;
+			case 2: this.position = (model.Position)fieldValue; break;
 			default: throw new global::Avro.AvroRuntimeException("Bad index " + fieldPos + " in Put()");
 			};
 		}
