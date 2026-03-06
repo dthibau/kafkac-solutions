@@ -61,6 +61,7 @@ internal class ProducerThread : IDisposable
         {
             id = threadIndex,
             first_name = threadIndex == 0 ? null : $"Coursier-{threadIndex}",
+            vehicle_id = threadIndex + 100,
             position = new Position { latitude = 45, longitude = 45 }
         };
 
