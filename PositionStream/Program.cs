@@ -69,6 +69,26 @@ positionStream
         KeyValuePair.Create($"{key.Key}|{key.Window.StartTime:HH:mm:ss}-{key.Window.EndTime:HH:mm:ss}", count))
     .To<StringSerDes, Int64SerDes>("position-count-windowed");
 
+// GroupBy + Aggregate : nombre de coursiers actuellement présents à chaque position
+// 1. KTable<coursierId, position> : dernière position connue de chaque coursier
+var coursiersTable = rounded
+    .Map<string, string>((key, coursier, ctx) =>
+        KeyValuePair.Create(coursier.id.ToString(), $"{coursier.position.latitude},{coursier.position.longitude}"))
+    .GroupByKey<StringSerDes, StringSerDes>()
+    .Reduce((oldValue, newValue) => newValue);
+
+// 2. GroupBy position → Aggregate avec adder/subtractor
+coursiersTable
+    .GroupBy<string, string, StringSerDes, StringSerDes>((coursierId, position, ctx) =>
+        KeyValuePair.Create(position, coursierId))
+    .Aggregate<long, Int64SerDes>(
+        () => 0L,
+        (position, coursierId, count) => count + 1,   // adder : un coursier arrive
+        (position, coursierId, count) => count - 1)   // subtractor : un coursier part
+    .ToStream()
+    .Peek((position, count, ctx) => Console.WriteLine($"Position {position} : {count} coursier(s) présent(s)"))
+    .To<StringSerDes, Int64SerDes>("coursiers-par-position");
+
 var topology = builder.Build();
 var stream = new KafkaStream(topology, config);
 
