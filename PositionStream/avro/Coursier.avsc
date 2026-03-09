@@ -1,0 +1,38 @@
+{
+  "type": "record",
+  "name": "Coursier",
+  "namespace": "model",
+  "fields": [
+    {
+      "name": "id",
+      "type": "long"
+    },
+    {
+      "name": "first_name",
+      "type": "string",
+      "default": "undefined"
+    },
+    {
+      "name": "vehicle_id",
+      "type": "int"
+    },
+    {
+      "name": "position",
+      "type": {
+        "type": "record",
+        "name": "Position",
+        "namespace": "model",
+        "fields": [
+          {
+            "name": "latitude",
+            "type": "double"
+          },
+          {
+            "name": "longitude",
+            "type": "double"
+          }
+        ]
+      }
+    }
+  ]
+}
