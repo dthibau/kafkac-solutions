@@ -31,7 +31,9 @@ builder.Stream<string, Coursier, StringSerDes, SchemaAvroSerDes<Coursier>>("posi
         Console.WriteLine($"Coursier {rounded.id} : lat={rounded.position.latitude}, lng={rounded.position.longitude}");
         return rounded;
     })
-    .To<StringSerDes, SchemaAvroSerDes<Coursier>>("position-rounded");
+    .Map<string, string>((key, coursier, ctx) =>
+        KeyValuePair.Create($"{coursier.position.latitude},{coursier.position.longitude}", coursier.id.ToString()))
+    .To<StringSerDes, StringSerDes>("position-by-location");
 
 var topology = builder.Build();
 var stream = new KafkaStream(topology, config);
