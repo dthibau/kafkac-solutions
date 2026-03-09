@@ -17,7 +17,9 @@ internal class ProducerThread : IDisposable
 
         var config = new ProducerConfig
         {
-            BootstrapServers = bootstrapServers
+            BootstrapServers = bootstrapServers,
+            EnableIdempotence = true,
+            TransactionalId = $"producer-{Guid.NewGuid()}"
         };
 
         if (sendMode == SendMode.FIRE_AND_FORGET)
@@ -28,11 +30,15 @@ internal class ProducerThread : IDisposable
         _producer = new ProducerBuilder<string, Coursier>(config)
             .SetValueSerializer(new CustomSerializer<Coursier>())
             .Build();
+
+        _producer.InitTransactions(TimeSpan.FromSeconds(10));
     }
 
     public async Task StartProducing(int threadIndex, int nbMessages)
     {
         Coursier coursier = new Coursier(threadIndex, new Position(45, 45));
+
+        _producer.BeginTransaction();
 
         for (int i = 0; i < nbMessages; i++)
         {
@@ -80,9 +86,17 @@ internal class ProducerThread : IDisposable
                 Console.WriteLine($"Erreur lors de l'envoi du message '{message}': {e.Message}");
             }
 
-            // Thread.Sleep(100); // Simule une pause entre les envois
+            if ((i + 1) % 10 == 0)
+            {
+                _producer.CommitTransaction();
+                Console.WriteLine($"[Thread {threadIndex}] Transaction committée après {i + 1} messages");
+                _producer.BeginTransaction();
+            }
+
+            Thread.Sleep(100);
         }
 
+        // Les messages restants (non multiple de 10) ne sont pas committés
         _producer.Flush(TimeSpan.FromSeconds(10));
     }
 
