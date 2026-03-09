@@ -20,9 +20,12 @@ internal class ProducerThread : IDisposable
             BootstrapServers = bootstrapServers,
             EnableIdempotence = true,
             TransactionalId = $"producer-{Guid.NewGuid()}",
-            SecurityProtocol = SecurityProtocol.Ssl,
-            SslCaLocation = @"C:\Users\PLB\kafka\TPsC\9_securite\9.1_SSL\ssl\mount\ca-cert.pem",
-            SslEndpointIdentificationAlgorithm = SslEndpointIdentificationAlgorithm.None
+            SecurityProtocol = SecurityProtocol.SaslSsl,
+            SslCaLocation = @"C:\Users\PLB\kafka\TPsC\9_securite\9.2_SASL\ssl\mount\ca-cert.pem",
+            SslEndpointIdentificationAlgorithm = SslEndpointIdentificationAlgorithm.None,
+            SaslMechanism = SaslMechanism.Plain,
+            SaslUsername = "alice",
+            SaslPassword = "alice-secret"
         };
 
         if (sendMode == SendMode.FIRE_AND_FORGET)
