@@ -1,5 +1,6 @@
 using Streamiz.Kafka.Net;
 using Streamiz.Kafka.Net.SerDes;
+using Streamiz.Kafka.Net.Stream;
 using Streamiz.Kafka.Net.SchemaRegistry.SerDes.Avro;
 using Confluent.SchemaRegistry;
 using model;
@@ -56,6 +57,17 @@ positionStream
     .ToStream()
     .Peek((key, count, ctx) => Console.WriteLine($"Position {key} : {count} messages"))
     .To<StringSerDes, Int64SerDes>("position-count");
+
+// Windowed Count : nombre de messages par position sur une fenêtre de 30 secondes
+positionStream
+    .GroupByKey<StringSerDes, StringSerDes>()
+    .WindowedBy(TumblingWindowOptions.Of(TimeSpan.FromSeconds(30)))
+    .Count()
+    .ToStream()
+    .Peek((key, count, ctx) => Console.WriteLine($"Position {key.Key} [{key.Window.StartTime:HH:mm:ss} - {key.Window.EndTime:HH:mm:ss}] : {count} messages"))
+    .Map<string, long>((key, count, ctx) =>
+        KeyValuePair.Create($"{key.Key}|{key.Window.StartTime:HH:mm:ss}-{key.Window.EndTime:HH:mm:ss}", count))
+    .To<StringSerDes, Int64SerDes>("position-count-windowed");
 
 var topology = builder.Build();
 var stream = new KafkaStream(topology, config);
