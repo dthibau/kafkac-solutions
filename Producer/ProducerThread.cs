@@ -19,7 +19,10 @@ internal class ProducerThread : IDisposable
         {
             BootstrapServers = bootstrapServers,
             EnableIdempotence = true,
-            TransactionalId = $"producer-{Guid.NewGuid()}"
+            TransactionalId = $"producer-{Guid.NewGuid()}",
+            SecurityProtocol = SecurityProtocol.Ssl,
+            SslCaLocation = @"C:\Users\PLB\kafka\TPsC\9_securite\9.1_SSL\ssl\mount\ca-cert.pem",
+            SslEndpointIdentificationAlgorithm = SslEndpointIdentificationAlgorithm.None
         };
 
         if (sendMode == SendMode.FIRE_AND_FORGET)
