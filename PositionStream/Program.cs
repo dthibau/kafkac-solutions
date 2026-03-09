@@ -45,6 +45,18 @@ var branches = rounded.Branch((key, coursier, ctx) => coursier.position.latitude
 branches[0].To<StringSerDes, SchemaAvroSerDes<Coursier>>("position-nord");
 branches[1].To<StringSerDes, SchemaAvroSerDes<Coursier>>("position-sud");
 
+// Count : nombre de messages par position
+var positionStream = rounded
+    .Map<string, string>((key, coursier, ctx) =>
+        KeyValuePair.Create($"{coursier.position.latitude},{coursier.position.longitude}", coursier.id.ToString()));
+
+positionStream
+    .GroupByKey<StringSerDes, StringSerDes>()
+    .Count()
+    .ToStream()
+    .Peek((key, count, ctx) => Console.WriteLine($"Position {key} : {count} messages"))
+    .To<StringSerDes, Int64SerDes>("position-count");
+
 var topology = builder.Build();
 var stream = new KafkaStream(topology, config);
 
