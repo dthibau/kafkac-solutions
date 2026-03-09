@@ -28,8 +28,9 @@ namespace KafkaConsumer
                 BootstrapServers = _bootstrapServers,
                 GroupId = _groupId,
                 AutoOffsetReset = AutoOffsetReset.Earliest,
-                EnableAutoCommit = false,
-                EnableAutoOffsetStore = false
+                EnableAutoCommit = true,
+                EnableAutoOffsetStore = false,
+                IsolationLevel = IsolationLevel.ReadCommitted
             };
 
             using var consumer = new ConsumerBuilder<string, Coursier>(config)
