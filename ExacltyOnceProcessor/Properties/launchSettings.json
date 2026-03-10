@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ExacltyOnceProcessor": {
+      "commandName": "Project",
+      "commandLineArgs": "100"
+    }
+  }
+}

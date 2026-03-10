@@ -1,5 +1,8 @@
 <Solution>
   <Project Path="Consumer/Consumer.csproj" Id="d7587869-a417-440d-8ec2-75c029ebc687" />
+  <Project Path="ConsumerAvro/ConsumerAvro.csproj" Id="e950841d-9690-4bb4-8323-5fd9a21ea979" />
+  <Project Path="ExacltyOnceProcessor/ExacltyOnceProcessor.csproj" Id="34e9324f-1023-4e9f-9548-2f23db3a7b63" />
+  <Project Path="PositionStream/PositionStream.csproj" Id="7427cd78-30d6-4f16-81e9-35780421a8f8" />
   <Project Path="Producer/Producer.csproj" />
   <Project Path="ProducerAvro/ProducerAvro.csproj" Id="8e45cc16-fc7d-47ea-af8c-40284aa299ca" />
   <Project Path="ConsumerAvro/ConsumerAvro.csproj" />

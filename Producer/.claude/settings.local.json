@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:lgouellec.github.io)",
+      "WebSearch",
+      "WebFetch(domain:dev.to)",
+      "Bash(gh api:*)",
+      "Bash(gh auth:*)",
+      "Bash(dotnet add:*)",
+      "Bash(taskkill:*)",
+      "Bash(cp:*)",
+      "Bash(docker run:*)",
+      "Bash(docker:*)",
+      "Bash(python3:*)",
+      "Bash(curl:*)",
+      "WebFetch(domain:repo1.maven.org)"
+    ]
+  }
+}
