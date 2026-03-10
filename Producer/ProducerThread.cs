@@ -21,11 +21,13 @@ internal class ProducerThread : IDisposable
             EnableIdempotence = true,
             TransactionalId = $"producer-{Guid.NewGuid()}",
             SecurityProtocol = SecurityProtocol.SaslSsl,
-            SslCaLocation = @"C:\Users\PLB\kafka\TPsC\9_securite\9.2_SASL\ssl\mount\ca-cert.pem",
+            SslCaLocation = @"C:\Users\PLB\kafka\TPsC\9_securite\9.2.2_OAuth\ssl\mount\ca-cert.pem",
             SslEndpointIdentificationAlgorithm = SslEndpointIdentificationAlgorithm.None,
-            SaslMechanism = SaslMechanism.Plain,
-            SaslUsername = "alice",
-            SaslPassword = "alice-secret"
+            SaslMechanism = SaslMechanism.OAuthBearer,
+            SaslOauthbearerMethod = SaslOauthbearerMethod.Oidc,
+            SaslOauthbearerClientId = "kafka-producer-client",
+            SaslOauthbearerClientSecret = "producer-secret",
+            SaslOauthbearerTokenEndpointUrl = "http://localhost:9090/realms/kafka/protocol/openid-connect/token"
         };
 
         if (sendMode == SendMode.FIRE_AND_FORGET)
