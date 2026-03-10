@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
@@ -27,7 +28,8 @@ internal class ProducerThread : IDisposable
             SaslOauthbearerMethod = SaslOauthbearerMethod.Oidc,
             SaslOauthbearerClientId = "kafka-producer-client",
             SaslOauthbearerClientSecret = "producer-secret",
-            SaslOauthbearerTokenEndpointUrl = "http://localhost:9090/realms/kafka/protocol/openid-connect/token"
+            SaslOauthbearerTokenEndpointUrl = "http://localhost:9090/realms/kafka/protocol/openid-connect/token",
+            StatisticsIntervalMs = 5000
         };
 
         if (sendMode == SendMode.FIRE_AND_FORGET)
@@ -37,6 +39,31 @@ internal class ProducerThread : IDisposable
 
         _producer = new ProducerBuilder<string, Coursier>(config)
             .SetValueSerializer(new CustomSerializer<Coursier>())
+            .SetStatisticsHandler((_, json) =>
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(json);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("brokers", out var brokers))
+                    {
+                        foreach (var broker in brokers.EnumerateObject())
+                        {
+                            var b = broker.Value;
+                            if (b.TryGetProperty("throttle", out var throttle))
+                            {
+                                var cnt = throttle.GetProperty("cnt").GetInt64();
+                                var sum = throttle.GetProperty("sum").GetInt64();
+                                if (cnt > 0)
+                                {
+                                    Console.WriteLine($"[THROTTLE] Broker {broker.Name} : {cnt} requêtes throttlées, temps total = {sum} ms");
+                                }
+                            }
+                        }
+                    }
+                }
+                catch { /* ignore parsing errors */ }
+            })
             .Build();
 
         _producer.InitTransactions(TimeSpan.FromSeconds(10));
@@ -101,7 +128,7 @@ internal class ProducerThread : IDisposable
                 _producer.BeginTransaction();
             }
 
-            Thread.Sleep(100);
+            Thread.Sleep(1);
         }
 
         // Les messages restants (non multiple de 10) ne sont pas committés
