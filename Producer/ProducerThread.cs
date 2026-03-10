@@ -21,14 +21,15 @@ internal class ProducerThread : IDisposable
             BootstrapServers = bootstrapServers,
             EnableIdempotence = true,
             TransactionalId = $"producer-{Guid.NewGuid()}",
-            SecurityProtocol = SecurityProtocol.SaslSsl,
-            SslCaLocation = @"C:\Users\PLB\kafka\TPsC\9_securite\9.2.2_OAuth\ssl\mount\ca-cert.pem",
-            SslEndpointIdentificationAlgorithm = SslEndpointIdentificationAlgorithm.None,
-            SaslMechanism = SaslMechanism.OAuthBearer,
-            SaslOauthbearerMethod = SaslOauthbearerMethod.Oidc,
-            SaslOauthbearerClientId = "kafka-producer-client",
-            SaslOauthbearerClientSecret = "producer-secret",
-            SaslOauthbearerTokenEndpointUrl = "http://localhost:9090/realms/kafka/protocol/openid-connect/token",
+            // --- Sécurité (décommenter pour labs 9.x) ---
+            // SecurityProtocol = SecurityProtocol.SaslSsl,
+            // SslCaLocation = @"C:\Users\PLB\kafka\TPsC\9_securite\9.2.2_OAuth\ssl\mount\ca-cert.pem",
+            // SslEndpointIdentificationAlgorithm = SslEndpointIdentificationAlgorithm.None,
+            // SaslMechanism = SaslMechanism.OAuthBearer,
+            // SaslOauthbearerMethod = SaslOauthbearerMethod.Oidc,
+            // SaslOauthbearerClientId = "kafka-producer-client",
+            // SaslOauthbearerClientSecret = "producer-secret",
+            // SaslOauthbearerTokenEndpointUrl = "http://localhost:9090/realms/kafka/protocol/openid-connect/token",
             StatisticsIntervalMs = 5000
         };
 
@@ -45,22 +46,33 @@ internal class ProducerThread : IDisposable
                 {
                     using var doc = JsonDocument.Parse(json);
                     var root = doc.RootElement;
+
+                    Console.WriteLine("=== [PRODUCER STATS] ===");
+
+                    // Métriques globales
+                    var msgCnt = root.GetProperty("msg_cnt").GetInt64();
+                    var msgSize = root.GetProperty("msg_size").GetInt64();
+                    var tx = root.GetProperty("tx").GetInt64();
+                    Console.WriteLine($"  Global : msg_cnt={msgCnt}, msg_size={msgSize}, tx={tx}");
+
+                    // Métriques par broker
                     if (root.TryGetProperty("brokers", out var brokers))
                     {
                         foreach (var broker in brokers.EnumerateObject())
                         {
                             var b = broker.Value;
-                            if (b.TryGetProperty("throttle", out var throttle))
-                            {
-                                var cnt = throttle.GetProperty("cnt").GetInt64();
-                                var sum = throttle.GetProperty("sum").GetInt64();
-                                if (cnt > 0)
-                                {
-                                    Console.WriteLine($"[THROTTLE] Broker {broker.Name} : {cnt} requêtes throttlées, temps total = {sum} ms");
-                                }
-                            }
+                            var outbufCnt = b.GetProperty("outbuf_cnt").GetInt64();
+                            var txmsgs = b.GetProperty("txmsgs").GetInt64();
+                            var txbytes = b.GetProperty("txbytes").GetInt64();
+                            var rttAvg = b.GetProperty("rtt").GetProperty("avg").GetInt64();
+                            var throttleCnt = b.GetProperty("throttle").GetProperty("cnt").GetInt64();
+                            var throttleSum = b.GetProperty("throttle").GetProperty("sum").GetInt64();
+
+                            Console.WriteLine($"  Broker {broker.Name} : outbuf_cnt={outbufCnt}, txmsgs={txmsgs}, txbytes={txbytes}, rtt.avg={rttAvg} µs, throttle(cnt={throttleCnt}, sum={throttleSum})");
                         }
                     }
+
+                    Console.WriteLine("========================");
                 }
                 catch { /* ignore parsing errors */ }
             })

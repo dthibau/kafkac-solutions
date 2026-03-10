@@ -2,6 +2,7 @@ using Confluent.Kafka;
 using KafkaConsumer.model;
 using Npgsql;
 using System;
+using System.Text.Json;
 using System.Threading;
 
 namespace KafkaConsumer
@@ -30,7 +31,8 @@ namespace KafkaConsumer
                 AutoOffsetReset = AutoOffsetReset.Earliest,
                 EnableAutoCommit = true,
                 EnableAutoOffsetStore = false,
-                IsolationLevel = IsolationLevel.ReadCommitted
+                IsolationLevel = IsolationLevel.ReadCommitted,
+                StatisticsIntervalMs = 5000
             };
 
             using var consumer = new ConsumerBuilder<string, Coursier>(config)
@@ -72,6 +74,41 @@ namespace KafkaConsumer
                 {
                     Console.WriteLine($"Partitions révoquées : {string.Join(", ", partitions)}");
                 })
+                .SetStatisticsHandler((_, json) =>
+                {
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(json);
+                        var root = doc.RootElement;
+
+                        Console.WriteLine("=== [CONSUMER STATS] ===");
+
+                        // Métriques par broker
+                        if (root.TryGetProperty("brokers", out var brokers))
+                        {
+                            foreach (var broker in brokers.EnumerateObject())
+                            {
+                                var b = broker.Value;
+                                var rxmsgs = b.GetProperty("rxmsgs").GetInt64();
+                                var rxbytes = b.GetProperty("rxbytes").GetInt64();
+                                var rttAvg = b.GetProperty("rtt").GetProperty("avg").GetInt64();
+
+                                Console.WriteLine($"  Broker {broker.Name} : rxmsgs={rxmsgs}, rxbytes={rxbytes}, rtt.avg={rttAvg} µs");
+                            }
+                        }
+
+                        // Métriques consumer group
+                        if (root.TryGetProperty("cgrp", out var cgrp))
+                        {
+                            var rebalanceCnt = cgrp.GetProperty("rebalance_cnt").GetInt64();
+                            var assignmentSize = cgrp.GetProperty("assignment_size").GetInt64();
+                            Console.WriteLine($"  Consumer group : rebalance_cnt={rebalanceCnt}, assignment_size={assignmentSize}");
+                        }
+
+                        Console.WriteLine("========================");
+                    }
+                    catch { /* ignore parsing errors */ }
+                })
                 .Build();
 
             consumer.Subscribe(_topic);
@@ -86,8 +123,8 @@ namespace KafkaConsumer
 
                     Console.WriteLine($"Message reçu : clé = {consumeResult.Message.Key}, partition = {consumeResult.Partition}, offset = {consumeResult.Offset}");
 
-                    long coursierId = long.Parse(consumeResult.Message.Key);
-                    InsertIntoPostgres(coursierId, consumeResult.Partition.Value, consumeResult.Offset.Value);
+                    // long coursierId = long.Parse(consumeResult.Message.Key);
+                    // InsertIntoPostgres(coursierId, consumeResult.Partition.Value, consumeResult.Offset.Value);
 
                     consumer.StoreOffset(consumeResult);
                 }
