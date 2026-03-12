@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ConsumerAvro": {
+      "commandName": "Project",
+      "commandLineArgs": "3"
+    }
+  }
+}

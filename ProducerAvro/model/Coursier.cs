@@ -16,7 +16,7 @@ namespace model
 	[global::System.CodeDom.Compiler.GeneratedCodeAttribute("avrogen", "1.12.1+9110c693767c1dde2665b2b57939333478b12036")]
 	public partial class Coursier : global::Avro.Specific.ISpecificRecord
 	{
-		public static global::Avro.Schema _SCHEMA = global::Avro.Schema.Parse(@"{""type"":""record"",""name"":""Coursier"",""namespace"":""model"",""fields"":[{""name"":""id"",""type"":""long""},{""name"":""first_name"",""default"":""undefined"",""type"":""string""},{""name"":""position"",""type"":{""type"":""record"",""name"":""Position"",""namespace"":""model"",""fields"":[{""name"":""latitude"",""type"":""double""},{""name"":""longitude"",""type"":""double""}]}}]}");
+		public static global::Avro.Schema _SCHEMA = global::Avro.Schema.Parse(@"{""type"":""record"",""name"":""Coursier"",""namespace"":""model"",""fields"":[{""name"":""id"",""type"":""long""},{""name"":""first_name"",""default"":null,""type"":[""null"",""string""]},{""name"":""position"",""type"":{""type"":""record"",""name"":""Position"",""namespace"":""model"",""fields"":[{""name"":""latitude"",""type"":""double""},{""name"":""longitude"",""type"":""double""}]}}]}");
 		private long _id;
 		private string _first_name;
 		private model.Position _position;

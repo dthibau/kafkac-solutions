@@ -1,10 +1,12 @@
-using System;
-using System.Threading;
 using Avro.Generic;
 using Confluent.Kafka;
-using Confluent.SchemaRegistry;
 using Confluent.Kafka.SyncOverAsync;
+using Confluent.SchemaRegistry;
 using Confluent.SchemaRegistry.Serdes;
+using Newtonsoft.Json.Linq;
+using System;
+using System.Threading;
+using System.Xml.Linq;
 
 namespace KafkaConsumerAvro
 {
@@ -63,8 +65,23 @@ namespace KafkaConsumerAvro
                     var position = (GenericRecord)record["position"];
                     double latitude = (double)position["latitude"];
                     double longitude = (double)position["longitude"];
+                    
+                    var schema = record.Schema;
 
-                    Console.WriteLine($"Message reçu : clé={consumeResult.Message.Key}, id={id}, lat={latitude}, lng={longitude}, partition={consumeResult.Partition}, offset={consumeResult.Offset}");
+                    Console.WriteLine("Liste des propriétés disponibles :");
+
+                    foreach (var field in schema.Fields)
+                    {
+                        // Nom du champ
+                        string name = field.Name;
+
+                        // Valeur actuelle dans le record
+                        object value = record[name];
+
+                        Console.WriteLine($"- {name} (Type: {field.Schema.Tag}): {value}");
+                    }
+
+                        Console.WriteLine($"Message reçu : clé={consumeResult.Message.Key}, id={id}, lat={latitude}, lng={longitude}, partition={consumeResult.Partition}, offset={consumeResult.Offset}");
                 }
             }
             catch (OperationCanceledException)

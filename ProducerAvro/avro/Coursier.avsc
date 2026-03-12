@@ -9,8 +9,8 @@
     },
     {
       "name": "first_name",
-      "type": "string",
-      "default": "undefined"
+      "type": ["null", "string"], 
+      "default": null
     },
     {
       "name": "position",

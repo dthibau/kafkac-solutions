@@ -2,4 +2,5 @@
   <Project Path="Consumer/Consumer.csproj" Id="d7587869-a417-440d-8ec2-75c029ebc687" />
   <Project Path="Producer/Producer.csproj" />
   <Project Path="ProducerAvro/ProducerAvro.csproj" Id="8e45cc16-fc7d-47ea-af8c-40284aa299ca" />
+  <Project Path="ConsumerAvro/ConsumerAvro.csproj" />
 </Solution>
