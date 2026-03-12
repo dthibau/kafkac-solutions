@@ -64,10 +64,10 @@ internal class ProducerThread : IDisposable
                             {
                                 Console.WriteLine($"[Thread {threadIndex}] Erreur: {deliveryReport.Error.Reason}");
                             }
-                            else
+                           /* else
                             {
                                 Console.WriteLine($"[Thread {threadIndex}] Message envoyé: partition={deliveryReport.Partition}, offset={deliveryReport.Offset}");
-                            }
+                            }*/
                         });
                         break;
 
@@ -80,7 +80,7 @@ internal class ProducerThread : IDisposable
                 Console.WriteLine($"Erreur lors de l'envoi du message '{message}': {e.Message}");
             }
 
-            Thread.Sleep(100); // Simule une pause entre les envois
+            // Thread.Sleep(100); // Simule une pause entre les envois
         }
 
         _producer.Flush(TimeSpan.FromSeconds(10));

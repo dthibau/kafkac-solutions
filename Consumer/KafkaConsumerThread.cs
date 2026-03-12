@@ -28,7 +28,8 @@ namespace KafkaConsumer
                 BootstrapServers = _bootstrapServers,
                 GroupId = _groupId,
                 AutoOffsetReset = AutoOffsetReset.Earliest,
-                EnableAutoCommit = true
+                EnableAutoCommit = true,
+                EnableAutoOffsetStore = false
             };
 
             using var consumer = new ConsumerBuilder<string, Coursier>(config)
@@ -55,6 +56,8 @@ namespace KafkaConsumer
 
                     long coursierId = long.Parse(consumeResult.Message.Key);
                     InsertIntoPostgres(coursierId, consumeResult.Offset.Value);
+
+                    consumer.StoreOffset(consumeResult);
                 }
             }
             catch (OperationCanceledException)
