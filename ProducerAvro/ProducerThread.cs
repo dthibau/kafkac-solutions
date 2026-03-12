@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
+using Confluent.Kafka.SyncOverAsync;
 using Confluent.SchemaRegistry;
 using Confluent.SchemaRegistry.Serdes;
 using model;
@@ -33,9 +34,25 @@ internal class ProducerThread : IDisposable
             Url = schemaRegistryUrl
         });
 
-        _producer = new ProducerBuilder<string, Coursier>(config)
-            .SetValueSerializer(new AvroSerializer<Coursier>(_schemaRegistry))
-            .Build();
+        ISerializer<Coursier> serializer;
+
+        var baseAvroSerializer = new AvroSerializer<Coursier>(_schemaRegistry);
+
+        if ( sendMode == SendMode.ASYNCHRONE )
+        {
+            _producer = new ProducerBuilder<string, Coursier>(config)
+                        .SetValueSerializer(baseAvroSerializer.AsSyncOverAsync())
+                        .Build();
+        } else
+        {
+            _producer = new ProducerBuilder<string, Coursier>(config)
+                       .SetValueSerializer(baseAvroSerializer)
+                       .Build();
+        }
+
+
+
+
     }
 
     public async Task StartProducing(int threadIndex, int nbMessages)
@@ -70,17 +87,17 @@ internal class ProducerThread : IDisposable
                         break;
 
                     case SendMode.ASYNCHRONE:
-                        _ = _producer.ProduceAsync(_topic, message).ContinueWith(task =>
+                         _producer.Produce(_topic, message, deliveryReport =>
                         {
-                            if (task.IsFaulted)
+                            if (deliveryReport.Error.Code != ErrorCode.NoError)
                             {
-                                Console.WriteLine($"[Thread {threadIndex}] Erreur: {task.Exception?.InnerException?.Message}");
+                                Console.WriteLine($"[Thread {threadIndex}] Erreur: {deliveryReport.Error.Reason}");
                             }
                             else
                             {
-                                Console.WriteLine($"[Thread {threadIndex}] Message envoyé: partition={task.Result.Partition}, offset={task.Result.Offset}");
-                            }
-                        });
+                            Console.WriteLine($"[Thread {threadIndex}] Message envoyÃ©: partition={deliveryReport.Partition}, offset={deliveryReport.Offset}");
+                                                        }
+                            });
                         break;
 
                     default:
