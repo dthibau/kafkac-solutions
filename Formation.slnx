@@ -5,5 +5,4 @@
   <Project Path="PositionStream/PositionStream.csproj" Id="7427cd78-30d6-4f16-81e9-35780421a8f8" />
   <Project Path="Producer/Producer.csproj" />
   <Project Path="ProducerAvro/ProducerAvro.csproj" Id="8e45cc16-fc7d-47ea-af8c-40284aa299ca" />
-  <Project Path="ConsumerAvro/ConsumerAvro.csproj" />
 </Solution>
