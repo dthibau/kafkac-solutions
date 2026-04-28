@@ -37,6 +37,7 @@ namespace KafkaConsumer
                 .SetPartitionsAssignedHandler((c, partitions) =>
                 {
                     Console.WriteLine($"Partitions assignées : {string.Join(", ", partitions)}");
+                    return partitions.Select(tp => new TopicPartitionOffset(tp, GetOffsetByPartitionId(tp.Partition.Value)));
                 })
                 .SetPartitionsRevokedHandler((c, partitions) =>
                 {
@@ -55,7 +56,7 @@ namespace KafkaConsumer
                     Console.WriteLine($"Message reçu : clé = {consumeResult.Message.Key}, partition = {consumeResult.Partition}, offset = {consumeResult.Offset}");
 
                     long coursierId = long.Parse(consumeResult.Message.Key);
-                    InsertIntoPostgres(coursierId, consumeResult.Offset.Value);
+                    InsertIntoPostgres(coursierId, consumeResult.Partition.Value, consumeResult.Offset.Value);
 
                     consumer.StoreOffset(consumeResult);
                 }
@@ -70,15 +71,16 @@ namespace KafkaConsumer
             }
         }
 
-        private void InsertIntoPostgres(long key, long offset)
+        private void InsertIntoPostgres(long key, int partition, long offset)
         {
             using (var conn = new NpgsqlConnection(_connectionString))
             {
                 conn.Open();
 
-                using (var cmd = new NpgsqlCommand("INSERT INTO coursier (coursierId, kafkaOffset) VALUES (@key, @offset)", conn))
+                using (var cmd = new NpgsqlCommand("INSERT INTO coursier (coursierId, partitionId, kafkaOffset) VALUES (@key, @partition, @offset)", conn))
                 {
                     cmd.Parameters.AddWithValue("key", key);
+                    cmd.Parameters.AddWithValue("partition", partition);
                     cmd.Parameters.AddWithValue("offset", offset);
 
                     try
@@ -89,6 +91,41 @@ namespace KafkaConsumer
                     catch (PostgresException ex)
                     {
                         Console.WriteLine($"Erreur lors de l'insertion dans PostgreSQL : {ex.Message}");
+                    }
+                }
+            }
+        }
+        private Offset GetOffsetByPartitionId(int partitionId)
+        {
+            using (var conn = new NpgsqlConnection(_connectionString))
+            {
+                conn.Open();
+
+                // On suppose que vous avez une colonne partitionId dans votre table
+                string sql = "SELECT kafkaOffset FROM coursier WHERE partitionId = @partitionId ORDER BY kafkaOffset desc LIMIT 1";
+
+                using (var cmd = new NpgsqlCommand(sql, conn))
+                {
+                    cmd.Parameters.AddWithValue("partitionId", partitionId);
+
+                    try
+                    {
+                        // ExecuteScalar renvoie le premier Ã©lÃ©ment de la premiÃ¨re ligne
+                        object result = cmd.ExecuteScalar();
+
+                        // Si aucune ligne n'est trouvÃ©e, result sera null
+                        if (result != null && result != DBNull.Value)
+                        {
+                            Console.WriteLine($"Resuming consommation for partionId " + partitionId + " from " + result );
+                            return  new Offset(Convert.ToInt64(result)+1);
+                        }
+
+                        return Offset.Beginning; // Pas d'offset trouvÃ© pour cette partition
+                    }
+                    catch (PostgresException ex)
+                    {
+                        Console.WriteLine($"Erreur lors de la lecture PostgreSQL : {ex.Message}");
+                        return Offset.Beginning ;
                     }
                 }
             }
